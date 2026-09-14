@@ -1,6 +1,6 @@
 # API Plan
 
-# Endpoints
+## Endpoints
 
 `GET /notes` — получить список заметок
 `POST /notes` — создать заметку
