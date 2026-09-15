@@ -16,3 +16,9 @@
 `project-notes.md` — рабочие заметки по проекту
 `api-plan.md` — план API
 `git-conflict.md` — описание конфликта и его решения
+
+## Граф веток
+[GitHub Network](https://github.com/AlyaRaE/notes-service/network)
+
+## Конфликт
+Подробнее — в [git-conflict.md](git-conflict.md).
