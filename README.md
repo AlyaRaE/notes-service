@@ -1,27 +1,24 @@
-# Сервис заметок (Notes Service)
+# notes-service (Сервис заметок)
 
-Простое API-приложение на Java для управления заметками.
+Учебный проект по предмету DevSecOps. Простой сервис для создания,
+редактирования и хранения заметок.
 
-## Требования
-- Docker
+## Возможности:
 
-## Сборка и запуск
+Создание заметок
+Редактирование заметок
+Удаление заметок
+Поиск по заметкам
 
-1. Собрать образ:
-   docker build -t notes-service .
+## Структура проекта
 
-2. Запустить контейнер:
-   docker run -d -p 8080:8080 --name my-notes notes-service
+`README.md` — описание проекта
+`project-notes.md` — рабочие заметки по проекту
+`api-plan.md` — план API
+`git-conflict.md` — описание конфликта и его решения
 
-3. Проверить работу:
-   - GET /notes — список заметок
-   - GET /health — проверка статуса
+## Граф веток
+[GitHub Network](https://github.com/AlyaRaE/notes-service/network)
 
-   Пример:
-   curl http://localhost:8080/notes
-
-4. Логи:
-   docker logs my-notes
-
-5. Остановка:
-   docker stop my-notes
+## Конфликт
+Подробнее — в [git-conflict.md](git-conflict.md).
