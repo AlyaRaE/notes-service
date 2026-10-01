@@ -28,7 +28,6 @@ Docker
 ### Локально (без Docker)
 
 1. Скомпилировать:
-   ```bash
    `javac App.java`
 2. Запустить:
    `java App`
