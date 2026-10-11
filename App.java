@@ -3,57 +3,64 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
+import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public class App {
 
-    static class Note {
-        int id;
-        String text;
-        Note(int id, String text) { this.id = id; this.text = text; }
-    }
+    static String DB_HOST = System.getenv("DB_HOST") != null ? System.getenv("DB_HOST") : "localhost";
+    static String DB_PORT = System.getenv("DB_PORT") != null ? System.getenv("DB_PORT") : "5432";
+    static String DB_NAME = System.getenv("DB_NAME") != null ? System.getenv("DB_NAME") : "app";
+    static String DB_USER = System.getenv("DB_USER") != null ? System.getenv("DB_USER") : "postgres";
+    static String DB_PASS = System.getenv("DB_PASS") != null ? System.getenv("DB_PASS") : "1234";
 
-    static List<Note> notes = new ArrayList<>();
-    static AtomicInteger counter = new AtomicInteger(1);
+    static String URL = "jdbc:postgresql://" + DB_HOST + ":" + DB_PORT + "/" + DB_NAME;
 
     public static void main(String[] args) throws IOException {
+
+        try {
+            Thread.sleep(5000);
+        } catch (InterruptedException e) { }
+
+        initDB();
+
         HttpServer server = HttpServer.create(new InetSocketAddress(8080), 0);
 
         server.createContext("/notes", exchange -> {
             String method = exchange.getRequestMethod();
             String path = exchange.getRequestURI().getPath();
 
-            if (path.equals("/notes")) {
-                if (method.equals("GET")) {
-                    sendJson(exchange, 200, notesToJson());
-                } else if (method.equals("POST")) {
-                    String body = new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
-                    String text = extractText(body);
-                    Note note = new Note(counter.getAndIncrement(), text);
-                    notes.add(note);
-                    sendJson(exchange, 201, noteToJson(note));
-                }
-                return;
-            }
-
-            if (path.startsWith("/notes/")) {
-                int id = Integer.parseInt(path.substring("/notes/".length()));
-                Note found = null;
-                for (Note n : notes) {
-                    if (n.id == id) { found = n; break; }
+            try {
+                if (path.equals("/notes")) {
+                    if (method.equals("GET")) {
+                        sendJson(exchange, 200, getAllNotes());
+                    } else if (method.equals("POST")) {
+                        String body = new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
+                        String text = extractText(body);
+                        int id = addNote(text);
+                        sendJson(exchange, 201, "{\"id\":" + id + ",\"text\":\"" + text + "\"}");
+                    }
+                    return;
                 }
 
-                if (method.equals("PUT")) {
-                    String body = new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
-                    found.text = extractText(body);
-                    sendJson(exchange, 200, noteToJson(found));
-                } else if (method.equals("DELETE")) {
-                    notes.remove(found);
-                    sendJson(exchange, 200, "{\"status\":\"deleted\"}");
+                if (path.startsWith("/notes/")) {
+                    int id = Integer.parseInt(path.substring("/notes/".length()));
+                    if (method.equals("PUT")) {
+                        String body = new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
+                        String text = extractText(body);
+                        updateNote(id, text);
+                        sendJson(exchange, 200, "{\"id\":" + id + ",\"text\":\"" + text + "\"}");
+                    } else if (method.equals("DELETE")) {
+                        deleteNote(id);
+                        sendJson(exchange, 200, "{\"status\":\"deleted\"}");
+                    }
+                    return;
                 }
-                return;
+            } catch (Exception e) {
+                e.printStackTrace();
+                sendJson(exchange, 500, "{\"error\":\"" + e.getMessage() + "\"}");
             }
 
             sendJson(exchange, 404, "{\"error\":\"not found\"}");
@@ -64,6 +71,65 @@ public class App {
         server.start();
     }
 
+    static void initDB() {
+        try (Connection conn = DriverManager.getConnection(URL, DB_USER, DB_PASS);
+             Statement stmt = conn.createStatement()) {
+            String sql = "CREATE TABLE IF NOT EXISTS notes (" +
+                    "id SERIAL PRIMARY KEY," +
+                    "text VARCHAR(255) NOT NULL" +
+                    ");";
+            stmt.execute(sql);
+            System.out.println("Table 'notes' is ready.");
+        } catch (SQLException e) {
+            System.err.println("DB init error: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+
+    static String getAllNotes() {
+        StringBuilder sb = new StringBuilder("[");
+        try (Connection conn = DriverManager.getConnection(URL, DB_USER, DB_PASS);
+             Statement stmt = conn.createStatement();
+             ResultSet rs = stmt.executeQuery("SELECT id, text FROM notes ORDER BY id")) {
+            boolean first = true;
+            while (rs.next()) {
+                if (!first) sb.append(",");
+                sb.append("{\"id\":").append(rs.getInt("id")).append(",\"text\":\"").append(rs.getString("text")).append("\"}");
+                first = false;
+            }
+        } catch (SQLException e) { e.printStackTrace(); }
+        sb.append("]");
+        return sb.toString();
+    }
+
+    static int addNote(String text) {
+        try (Connection conn = DriverManager.getConnection(URL, DB_USER, DB_PASS);
+             PreparedStatement pstmt = conn.prepareStatement("INSERT INTO notes (text) VALUES (?) RETURNING id")) {
+            pstmt.setString(1, text);
+            ResultSet rs = pstmt.executeQuery();
+            if (rs.next()) return rs.getInt(1);
+        } catch (SQLException e) { e.printStackTrace(); }
+        return -1;
+    }
+
+    static void updateNote(int id, String text) {
+        try (Connection conn = DriverManager.getConnection(URL, DB_USER, DB_PASS);
+             PreparedStatement pstmt = conn.prepareStatement("UPDATE notes SET text = ? WHERE id = ?")) {
+            pstmt.setString(1, text);
+            pstmt.setInt(2, id);
+            pstmt.executeUpdate();
+        } catch (SQLException e) { e.printStackTrace(); }
+    }
+
+    static void deleteNote(int id) {
+        try (Connection conn = DriverManager.getConnection(URL, DB_USER, DB_PASS);
+             PreparedStatement pstmt = conn.prepareStatement("DELETE FROM notes WHERE id = ?")) {
+            pstmt.setInt(1, id);
+            pstmt.executeUpdate();
+        } catch (SQLException e) { e.printStackTrace(); }
+    }
+
+
     static void sendJson(com.sun.net.httpserver.HttpExchange exchange, int code, String body) throws IOException {
         byte[] bytes = body.getBytes(StandardCharsets.UTF_8);
         exchange.getResponseHeaders().set("Content-Type", "application/json");
@@ -73,22 +139,9 @@ public class App {
         os.close();
     }
 
-    static String noteToJson(Note n) {
-        return "{\"id\":" + n.id + ",\"text\":\"" + n.text + "\"}";
-    }
-
-    static String notesToJson() {
-        StringBuilder sb = new StringBuilder("[");
-        for (int i = 0; i < notes.size(); i++) {
-            sb.append(noteToJson(notes.get(i)));
-            if (i < notes.size() - 1) sb.append(",");
-        }
-        sb.append("]");
-        return sb.toString();
-    }
-
     static String extractText(String body) {
         int idx = body.indexOf("\"text\"");
+        if (idx == -1) return "";
         int start = body.indexOf("\"", idx + 6);
         int end = body.indexOf("\"", start + 1);
         return body.substring(start + 1, end);
