@@ -51,6 +51,29 @@ Docker
    `docker stop my-notes`
    `docker rm my-notes`
 
+## через Docker Compose
+
+Проект запускается вместе с базой данных PostgreSQL через `docker-compose.yml`
+1. Запуск:
+`docker compose up --build -d`
+2. Проверка статуса контейнеров:
+`docker compose ps` Ожидается: два сервиса `api` и `db` в статусе `Up`
+3. Просмотр логов Api:
+`docker compose logs api` Ожидается: сообщение `Server started on port 8080...` и `Table 'notes' is ready.`
+
+### Проверка сохранения данных после перезапуска:
+1. Остановить и удалить контейнер
+   `docker compose down`
+2. Запустить снова
+   `docker compose up -d`
+3. проверить, что данные на месте
+   `curl http://localhost:8080/notes`
+
+### Остановка проекта:
+`docker compose down`
+### Удаление контейнера с данными (если нужно очистить всё):
+`docker compose down -v`
+
 ## Примеры запросов
 
 ### Создать заметку: 
