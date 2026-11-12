@@ -1,93 +1,236 @@
 # notes-service (Сервис заметок)
 
-Учебный проект по предмету DevSecOps. Простой сервис для создания,
-редактирования и хранения заметок.
+Учебный проект по предмету DevSecOps. Простой сервис для создания, редактирования и хранения заметок.
+
+Проект состоит из трёх микросервисов, которые выполняют отдельные задачи и взаимодействуют между собой через HTTP-запросы.
 
 ## Возможности:
 
-Создание заметок
-Редактирование заметок
-Удаление заметок
-Поиск по заметкам
+- Создание заметок
+- Просмотр заметок
+- Редактирование заметок
+- Удаление заметок
+- Создание и просмотр тегов
+- Отправка уведомлений при создании новой заметки
+- Хранение данных в PostgreSQL
 
 ## Технологии
 
-Java 17 (чистый JDK, без сторонних библиотек)
-Docker
+- Java 17 (чистый JDK, без Spring)
+- PostgreSQL 
+- JDBC (PostgreSQL JDBC Driver)
+- Docker
+- Docker Compose
+- HTTP
+- curl для проверки API
 
 ## Структура проекта
-`App.java` — Исходный код API-приложения (все эндпоинты)
-`Dockerfile` — Инструкция для сборки Docker-образа
-`README.md` — описание проекта
-`project-notes.md` — рабочие заметки по проекту
-`api-plan.md` — план API
-`git-conflict.md` — описание конфликта и его решения
 
-## Запуск
+```text
+notes-service/
+│
+├── App.java
+├── Dockerfile
+├── docker-compose.yml
+├── postgresql-42.7.3.jar
+├── README.md
+│
+├── tags-service/
+│   ├── App.java
+│   └── Dockerfile
+│
+└── notifications-service/
+    ├── App.java
+    └── Dockerfile
+```
 
-### Локально (без Docker)
+## Микросервисы
 
-1. Скомпилировать:
-   `javac App.java`
-2. Запустить:
-   `java App`
-3. Проверить работу:
-   `curl http://localhost:8080/notes`
-4. Остановить: `Ctrl+C`
+### 1. Notes Service
 
-## Через Docker
+Основной сервис для работы с заметками.
 
-1. Собрать образ:
-   `docker build -t notes-service .`
-2. Запустить контейнер:
-   `docker run -d -p 8080:8080 --name my-notes notes-service`
-3. Проверить, что контейнер работает:
-   `docker ps`
-4. Проверить API:
-   `curl http://localhost:8080/notes`
-5. Посмотреть логи:
-   `docker logs my-notes`
-6. Остановить и удалить контейнер:
-   `docker stop my-notes`
-   `docker rm my-notes`
+Возможности:
+- Создание заметок
+- Просмотр всех заметок
+- Изменение заметок
+- Удаление заметок
+- Сохранение заметок в PostgreSQL
+- Отправка HTTP-уведомления при создании заметки
 
-## через Docker Compose
+Порт: `8080`
 
-Проект запускается вместе с базой данных PostgreSQL через `docker-compose.yml`
-1. Запуск:
-`docker compose up --build -d`
-2. Проверка статуса контейнеров:
-`docker compose ps` Ожидается: два сервиса `api` и `db` в статусе `Up`
-3. Просмотр логов Api:
-`docker compose logs api` Ожидается: сообщение `Server started on port 8080...` и `Table 'notes' is ready.`
+### 2. Tags Service
 
-### Проверка сохранения данных после перезапуска:
-1. Остановить и удалить контейнер
-   `docker compose down`
-2. Запустить снова
-   `docker compose up -d`
-3. проверить, что данные на месте
-   `curl http://localhost:8080/notes`
+Сервис для работы с тегами.
 
-### Остановка проекта:
-`docker compose down`
-### Удаление контейнера с данными (если нужно очистить всё):
-`docker compose down -v`
+Возможности:
+- Создание тегов
+- Просмотр всех тегов
+- Сохранение тегов в PostgreSQL
+
+Порт: `8081`
+
+### 3. Notifications Service
+
+Сервис для получения уведомлений.
+
+Возможности:
+- Получение HTTP POST-запросов от Notes Service
+- Вывод уведомлений в консольные логи
+
+Порт: `8082`
+
+## Запуск проекта
+
+### Через Docker Compose
+
+Проект запускается вместе с тремя микросервисами и базой данных PostgreSQL.
+
+1. Запустить все сервисы:
+
+```bash
+docker compose up -d --build
+```
+
+2. Проверить статус контейнеров:
+
+```bash
+docker compose ps
+```
+
+Ожидается четыре работающих контейнера:
+
+- `api` — Notes Service
+- `tags` — Tags Service
+- `notifications` — Notifications Service
+- `db` — PostgreSQL
+
+3. Посмотреть логи всех сервисов:
+
+```bash
+docker compose logs
+```
+
+4. Посмотреть логи Notes Service:
+
+```bash
+docker compose logs api
+```
+
+5. Посмотреть логи Notifications Service:
+
+```bash
+docker compose logs notifications
+```
 
 ## Примеры запросов
 
-### Создать заметку: 
-  `curl -X POST http://localhost:8080/notes \
-  -H "Content-Type: application/json" \
-  -d '{"text":"Купить хлеб"}'`
+Для выполнения запросов используется `curl`.
 
-### Обновить заметку:
-  `curl -X PUT http://localhost:8080/notes/1 \
-  -H "Content-Type: application/json" \
-  -d '{"text":"Купить молоко"}'`
+### Notes Service
 
-### Удалить заметку:
-  `curl -X DELETE http://localhost:8080/notes/1`
+Создать заметку:
+
+```bash
+curl -X POST http://localhost:8080/notes \
+-H "Content-Type: application/json" \
+-d '{"text":"Buy bread"}'
+```
+
+Получить все заметки:
+
+```bash
+curl http://localhost:8080/notes
+```
+
+Обновить заметку:
+
+```bash
+curl -X PUT http://localhost:8080/notes/1 \
+-H "Content-Type: application/json" \
+-d '{"text":"Do homework"}'
+```
+
+Удалить заметку:
+
+```bash
+curl -X DELETE http://localhost:8080/notes/1
+```
+
+### Tags Service
+
+Создать тег:
+
+```bash
+curl -X POST http://localhost:8081/tags \
+-H "Content-Type: application/json" \
+-d '{"name":"College"}'
+```
+
+Получить все теги:
+
+```bash
+curl http://localhost:8081/tags
+```
+
+### Notifications Service
+
+Notifications Service получает уведомления автоматически при создании новой заметки через Notes Service.
+
+Посмотреть полученные уведомления:
+
+```bash
+docker compose logs notifications
+```
+
+Для отдельной проверки Notifications Service можно отправить запрос:
+
+```bash
+curl -X POST http://localhost:8082/notifications \
+-H "Content-Type: application/json" \
+-d '{"message":"Test notification"}'
+```
+
+## Проверка сохранения данных после перезапуска
+
+Для проверки постоянного хранения данных:
+
+1. Остановить контейнеры:
+
+```bash
+docker compose down
+```
+
+2. Запустить проект снова:
+
+```bash
+docker compose up -d
+```
+
+3. Проверить, что заметки остались:
+
+```bash
+curl http://localhost:8080/notes
+```
+
+4. Проверить, что теги остались:
+
+```bash
+curl http://localhost:8081/tags
+```
+
+Команда `docker compose down -v` удаляет volume вместе с сохранёнными данными. Использовать её нужно только при намеренном удалении базы.
+
+## Остановка проекта
+
+```bash
+docker compose down
+```
+
+## Результат
+
+В проекте реализованы три отдельных Java-микросервиса, PostgreSQL и запуск всей системы через Docker Compose. Сервисы взаимодействуют через HTTP, а данные сохраняются в постоянном Docker volume.
 
 ## Архитектура проекта (C4 Model)
 
@@ -98,16 +241,13 @@ Docker
 **API Gateway / Load Balancer**: Входная точка, распределяет запросы.
 **API Service (Java)**: Основная логика приложения (обработка заметок).
 **PostgreSQL**: Основное хранилище данных.
-**Redis Cache**: Дополнительный компонент для кэширования.
+**Redis Cache**: Дополнительный компонент для кэширования. (В итоге не использовался)
 
 ### 3. Component (Уровень 3)
 Внутри API Service:
 **Controller**: Принимает HTTP-запросы.
 **Service**: Бизнес-логика (создание, редактирование заметок).
 **Repository**: Взаимодействие с PostgreSQL.
-
-### Почему выбран Redis?
-Redis выбран как дополнительный компонент, потому что он позволяет кэшировать часто запрашиваемые заметки. Это снижает нагрузку на PostgreSQL и ускоряет ответы API. Для сервиса заметок это актуально, так как одни и те же заметки могут запрашиваться многократно.
   
 ## Граф веток
 [GitHub Network](https://github.com/AlyaRaE/notes-service/network)
