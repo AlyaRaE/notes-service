@@ -1,28 +1,48 @@
-version: "3.9"
-
 services:
   api:
     build: .
     ports:
       - "8080:8080"
     environment:
-      - DB_HOST=db
-      - DB_PORT=5432
-      - DB_NAME=app
-      - DB_USER=postgres
-      - DB_PASS=1234
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_NAME: app
+      DB_USER: postgres
+      DB_PASS: "1234"
+      NOTIFICATIONS_URL: http://notifications:8082/notifications
     depends_on:
       - db
+      - notifications
+
+  tags:
+    build:
+      context: .
+      dockerfile: tags-service/Dockerfile
+    ports:
+      - "8081:8081"
+    environment:
+      DB_HOST: db
+      DB_NAME: app
+      DB_USER: postgres
+      DB_PASS: "1234"
+    depends_on:
+      - db
+
+  notifications:
+    build:
+      context: .
+      dockerfile: notifications-service/Dockerfile
+    ports:
+      - "8082:8082"
 
   db:
     image: postgres:16
     environment:
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=1234
-      - POSTGRES_DB=app
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: "1234"
+      POSTGRES_DB: app
     volumes:
       - db_data:/var/lib/postgresql/data
 
 volumes:
   db_data:
-
